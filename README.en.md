@@ -37,3 +37,14 @@ Your bests are saved by NeoDex, backed up and synced between your PCs if sync is
 In NeoDex: **NeoStore → Discover → Nightwatch → Install**.
 
 Building a plugin: see the [NeoDex SDK](https://github.com/NDesumeur/neodex-sdk).
+
+## Full screen
+
+The "FULL SCREEN" button puts the game in full screen. The game also grows with the window, from a small laptop to a big screen.
+
+## What's new in version 1.1.0
+
+- **Full screen** (see above).
+- **Four characters**, each with their starting weapon: the Watchman (lantern), the Huntress (daggers, by surviving 3 minutes), the Herbalist (fireflies, by surviving 6 minutes) and the Sorcerer (lightning, by seeing the dawn). Choose them in the right column.
+- **Four maps**: the meadow, the graveyard (graves and fences), the forest (trees, ferns, mushrooms) and the farm (rows of wheat, fences, pumpkins).
+- **Visible upgrades**: at the bottom of the screen, the icon of each upgrade you took and its level (up to 5 dots).

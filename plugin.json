@@ -1,9 +1,9 @@
 {
   "id": "neodex.veillee",
   "name": "Veillée",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "NDesumeur",
-  "description": "Jeu de survie en pixel art : seul dans un pré la nuit, lanterne à la main, tu fais face à des vagues de chauves-souris, d'ombres, de citrouilles et de golems. Tes armes tirent toutes seules, tu te déplaces et tu ramasses des cristaux pour monter de niveau et choisir tes améliorations. Tiens 10 minutes jusqu'à l'aube. Le noir autour de la lanterne, les yeux qui brillent, deux grands corbeaux.",
+  "description": "Jeu de survie en pixel art : seul dans un pré la nuit, lanterne à la main, tu fais face à des vagues de chauves-souris, d'ombres, de citrouilles et de golems. Tes armes tirent toutes seules, tu te déplaces et tu ramasses des cristaux pour monter de niveau et choisir tes améliorations. Tiens 10 minutes jusqu'à l'aube. Le noir autour de la lanterne, les yeux qui brillent, deux grands corbeaux. Version 1.1.0 : bouton plein écran, quatre personnages à débloquer avec leur arme de départ, trois nouvelles cartes (cimetière, forêt, ferme) et les améliorations choisies affichées pendant la partie.",
   "icon": "icon.png",
   "entry": "index.js",
   "view": "veillee",

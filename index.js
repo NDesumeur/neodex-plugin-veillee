@@ -5,17 +5,26 @@ const HTML = `<div class="appWrap wide">
   <div class="gMain"><div class="gameBox"><canvas id="vlCanvas" width="192" height="144" role="img" aria-label="Veillée"></canvas></div>
     <div class="gSide">
       <div class="sysCard"><b>RECORDS</b><div class="gStats" id="vlStats"></div></div>
-      <div class="row"><button class="btn main" id="vlNew">NOUVELLE PARTIE</button></div>
+      <div class="sysCard vlChoose"><b>PERSONNAGE</b><div class="vlPick" id="vlChars" data-pxskip></div><b>CARTE</b><div class="vlPick" id="vlMaps" data-pxskip></div></div>
+      <div class="row"><button class="btn main" id="vlNew">NOUVELLE PARTIE</button><button class="btn" id="vlFs">PLEIN ÉCRAN</button></div>
       <div class="hint">Tes armes tirent toutes seules : toi, tu marches. Évite les créatures, ramasse les cristaux qu'elles laissent et, à chaque niveau, choisis une amélioration parmi trois : lanterne, dagues, lucioles, foudre, bottes, cœur, aimant, mèche ou huile. Les chauves-souris vont plus vite que toi, les citrouilles et les golems arrivent plus tard, et deux grands corbeaux passent dans la nuit. Tiens 10 minutes et l'aube se lève.</div>
     </div></div>
 </div>`;
 const CSS = `.gMain{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
 .gameBox{display:grid;place-items:center;padding:10px;background:#05010b;flex:0 0 auto;position:relative}
-.gameBox canvas{height:min(72vh,576px);width:auto;aspect-ratio:192/144;image-rendering:pixelated;cursor:var(--cp,pointer);touch-action:none}
+.gameBox:fullscreen{padding:0}
+.gameBox:fullscreen canvas{height:100vh;max-width:100vw}
+.gameBox canvas{height:min(calc(100vh - 190px),900px);min-height:300px;max-width:100%;width:auto;aspect-ratio:192/144;image-rendering:pixelated;cursor:var(--cp,pointer);touch-action:none}
 .gSide{display:flex;flex-direction:column;gap:14px;flex:1;min-width:250px;max-width:420px}
 .gSide .sysCard{display:flex;flex-direction:column}
 .gStats{display:grid;grid-template-columns:1fr auto;gap:4px 14px}
-.gStats b{text-align:right}`;
+.gStats b{text-align:right}
+.vlChoose{gap:8px}
+.vlPick{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.pxk .vlPick .btn{flex-direction:column;align-items:flex-start;text-align:left;padding:4px 10px 8px;font:17px/1.25 var(--text,monospace)}
+.pxk .vlPick .btn span{font-size:17px}
+.pxk .vlPick .btn small{font-size:14px;opacity:.85}
+.vlPick .btn:disabled{opacity:.55;cursor:default}`;
 /* ---------- l'habillage pixel art, dessiné à la main : police bitmap (accents compris), cadres, boutons, icônes ----------
    Tout est en pixels pleins, agrandis par 2 sans lissage : aucun dégradé, aucune ombre floue. */
 const PXK = (() => {
@@ -288,7 +297,7 @@ export default async function (ctx) {
   view.innerHTML = HTML;
   pxSkin(view.querySelector('.appWrap'), { title: "VEILLÉE", T: {"k": "#0c0a12", "k2": "#16121e", "fill": "#221c2c", "fillOn": "#2e263a", "hl": "#3a3046", "line": "#62566e", "acc": "#ffb02a", "accL": "#fff0a0", "accS": "#c87a1a", "accD": "#2a1a08", "rivet": "#f0f0f8", "btn": "#3a3046", "btnHi": "#62566e", "btnLo": "#16121e", "btnHov": "#443852", "btnHovHi": "#82768e", "text": "#f4f0f8", "muted": "#c0b8cc", "acc2": "#7ee07a", "gold": "#ffd84a", "orange": "#ff8a3a", "red": "#ff4a3a", "green": "#7ee07a", "green2": "#2f8a3a", "bg": "#100c16", "bgDot": "#221c2c", "bgDot2": "#16121e", "spark": "#2a1a08", "spark2": "#ffb02a", "tile": ["................", "...:............", "................", "..........+.....", "................", "................", ".....:..........", "................", "................", ".............:..", "................", "..+.............", "................", ".........:......", "................", "................"]},
   emblem: ["...kkkk.....", "..kwwwwk....", ".kwwwwwwk...", ".kwwkmmkk...", ".kwwkmmmkk..", "..kbbkkk.k..", ".kbbbbbbkgk.", ".kbbbbbbkok.", ".kbbbbbbkkk.", "..kbbbbk....", "..km.kmk....", "..kk..kk...."],
-  icons: [[/^NOUVELLE/, 'play'], [/^RECORDS/, 'crown']] });
+  icons: [[/^NOUVELLE/, 'play'], [/^RECORDS/, 'crown'], [/^PLEIN/, 'full']] });
   const $ = id => view.querySelector('#' + id) || document.getElementById(id);
   const doc = async n => { try { return await folder.read(n); } catch { return null; } };
   const games = { best: {}, ...(await doc('games')) };
@@ -323,13 +332,23 @@ const pxFont = (g, text, x, y, color, size = 8, align = 'left') => { const s = P
 const VL = {W: 192, H: 144, DUR: 36000, CAP: 140, BOSS: [18000, 28800]};
 // une nouvelle partie garde le même objet : la boucle du jeu (gameLoop) continue de tourner dessus
 const renew = (old, o) => { if (!old) return o; for (const k of Object.keys(old)) if (k !== 'raf') delete old[k]; return Object.assign(old, o); };
-const vls = gstore('veillee', {games: 0, wins: 0, kills: 0});
+const vls = gstore('veillee', {games: 0, wins: 0, kills: 0, hero: 'veilleur', map: 'pre'});
 let vl = null, vlac = null, vlMute = false;
 function vlBeep(f, d, type = 'square', slide = 0, vol = .03) { if (vlMute) return; try { vlac ??= new AudioContext(); const o = vlac.createOscillator(), g = vlac.createGain(), t = vlac.currentTime; o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(vlac.destination); o.start(t); o.stop(t + d); } catch {} }
 const VL_SPR = {"hero": {"pal": {"k": "#120c1a", "h": "#6a8ad8", "H": "#3a5aa8", "s": "#f0c8a0", "e": "#120c1a", "C": "#2a3a78", "c": "#3a4a98", "y": "#fff0a0", "Y": "#ffb02a", "l": "#4a3a5a"}, "f": [["...kkkk....", "..khhhHk...", ".khhHHHHk..", ".kHHksesk..", ".kHHkssskk.", "..kCCkkk.k.", ".kcCCCCCkyk", ".kcCCCCCkYk", ".kcCCCCCkkk", "..kCCCCk...", "..kl.klk...", "..kk..kk..."], ["...kkkk....", "..khhhHk...", ".khhHHHHk..", ".kHHksesk..", ".kHHkssskk.", "..kCCkkk.k.", ".kcCCCCCkyk", ".kcCCCCCkYk", ".kcCCCCCkkk", "..kCCCCk...", "...klkk....", "...kkk....."]]}, "bat": {"pal": {"k": "#1a0e24", "p": "#8a64b0", "P": "#5a3a80", "r": "#ff5a4a"}, "f": [["p.......p", "pp.....pp", "Ppp.k.ppP", ".PpkkkpP.", "...rkr...", "....k...."], ["....k....", "...kkk...", "...rkr...", ".PppkppP.", "pp.....pp", "p.......p"]], "eyes": [[3, 4], [5, 4]]}, "shade": {"pal": {"k": "#0a0614", "s": "#3a3058", "S": "#52467a", "w": "#d8c8ff"}, "f": [["...kkk...", ".kkSSSkk.", "kSSSSSSSk", "kSSwSwSSk", "kSSSSSSSk", "ksSSSSSsk", "kssssssk.", "ks.ks.ks.", "k..k..k.."], ["...kkk...", ".kkSSSkk.", "kSSSSSSSk", "kSSwSwSSk", "kSSSSSSSk", "ksSSSSSsk", ".ksssssk.", ".ks.ks.sk", "..k..k..k"]], "eyes": [[3, 3], [5, 3]]}, "pumpkin": {"pal": {"k": "#1a0e0a", "o": "#ff8a2a", "O": "#c85a1a", "y": "#ffe04a", "g": "#4a9a2a", "b": "#3a2a4a", "B": "#2a1a36"}, "f": [["....g....", "...kgk...", ".kkoookk.", "kooOoOook", "koyoOoyok", "kooOoOook", "kOyyyyyOk", ".kkkkkkk.", "..kbbbk..", ".kbBbBbk.", ".kbbbbbk.", "..k...k.."], ["....g....", "...kgk...", ".kkoookk.", "kooOoOook", "koyoOoyok", "kooOoOook", "kOyyyyyOk", ".kkkkkkk.", "..kbbbk..", ".kbBbBbk.", ".kbbbbbk.", "...k.k..."]], "eyes": [[2, 4], [6, 4]]}, "golem": {"pal": {"k": "#14141a", "s": "#8a8a9a", "S": "#5a5a6a", "m": "#5a9a3a", "e": "#7ae0ff"}, "f": [["...kkkkk...", "..kmmmssk..", ".kssssssSk.", ".kseSSSeSk.", ".ksSSSSSSk.", "kkkssssSkkk", "ksk.kkk.ksk", "kSk.....kSk", ".kssskssSk.", ".kSSk.kSSk.", "kkkk...kkkk"], ["...kkkkk...", "..kmmmssk..", ".kssssssSk.", ".kseSSSeSk.", ".ksSSSSSSk.", "kkkssssSkkk", "ksk.kkk.ksk", "kSk.....kSk", ".kssskssSk.", "kSSk...kSSk", "kkkk...kkkk"]], "eyes": [[3, 3], [7, 3]]}, "crow": {"pal": {"k": "#0a0610", "b": "#5a4a7a", "B": "#3a2e52", "r": "#ff3a3a", "y": "#ffb02a"}, "f": [["kk............kk", "kbk..........kbk", "kbbk...kk...kbbk", ".kbbk.kBBk.kbbk.", ".kbbbkBrBkkbbbk.", "..kbbBBBByykbk..", "...kkBBBBkkkk...", "....kBBBBk......", ".....kBBk.......", "....kk..kk......"], ["................", ".......kk.......", "......kBBk......", "..kkk.kBrBkkkk..", ".kbbbkBBBByykbbk", "kbbbbBBBBkkkbbbk", "kbk.kBBBBk...kbk", "kk..kBBBBk....kk", ".....kBBk.......", "....kk..kk......"]], "eyes": [[7, 4]]}};
 const VL_ICON = {"pal": {"k": "#120c1a", "y": "#ffd84a", "Y": "#ffa82a", "w": "#ffffff", "B": "#9a6a3a", "R": "#ff4a5a", "O": "#5a8ae8", "g": "#c0c0d0"}, "flash": ["..kkkk..", ".kggggkk", "kkkkkkkk", "kyYYYYyk", "kYyyyyYk", "kyYYYYyk", "kkkkkkkk", "..kkkk.."], "dague": ["......kw", ".....kwk", "....kwk.", "...kwk..", ".kkwk...", "..kk....", ".kBk....", "kk......"], "luciole": ["........", ".y....y.", "yYy..yYy", ".y....y.", "....y...", "...yYy..", "....y...", "........"], "eclair": ["....kyy.", "...kyy..", "..kyy...", ".kyyyyk.", "...yyk..", "..yyk...", ".yyk....", ".yk....."], "bottes": ["........", ".kkk....", ".kBk....", ".kBk....", ".kBBkkk.", ".kBBBBBk", ".kkkkkkk", "........"], "coeur": [".kk.kk..", "kRRkRRk.", "kRwRRRk.", "kRRRRRk.", ".kRRRk..", "..kRk...", "...k....", "........"], "aimant": ["........", ".kk..kk.", ".kR..kR.", ".kR..kR.", ".kRkkkR.", "..kRRRk.", "...kkk..", "........"], "meche": ["...y....", "..yYy...", "...k....", "..kwwk..", "..kwwk..", "..kwwk..", "..kwwk..", ".kkkkkk."], "huile": ["...k....", "..kOk...", "..kOk...", ".kOOOk..", "kOOwOOk.", "kOOOOOk.", ".kOOOk..", "..kkk..."]};
 // les créatures : points de vie, vitesse, dégâts au contact, cristal laissé, rayon, à partir de quelle minute elles viennent
 const VL_FOES = {bat: {hp: 6, spd: 1.12, dmg: 4, xp: 1, r: 4, from: 0}, shade: {hp: 16, spd: .5, dmg: 8, xp: 2, r: 4, from: 1}, pumpkin: {hp: 32, spd: .68, dmg: 10, xp: 3, r: 5, from: 3}, golem: {hp: 90, spd: .42, dmg: 15, xp: 6, r: 6, from: 6}, crow: {hp: 700, spd: .8, dmg: 20, xp: 40, r: 13, from: 99}};
+// les personnages : chacun commence avec son arme ; on les débloque en tenant de plus en plus longtemps (en secondes de nuit), le dernier à l'aube
+const VL_CHARS = {
+  veilleur: {name: 'Le Veilleur', arme: 'flash', need: 0, pal: {}},
+  chasseuse: {name: 'La Chasseuse', arme: 'dague', need: 180, pal: {h: '#6ac86a', H: '#2a8a3a', C: '#24482a', c: '#356a3a'}},
+  herboriste: {name: 'L’Herboriste', arme: 'luciole', need: 360, pal: {h: '#d08ae8', H: '#9a4ac8', C: '#4a2a6a', c: '#6a3a8a'}},
+  sorcier: {name: 'Le Sorcier', arme: 'eclair', need: 'aube', pal: {h: '#f06a5a', H: '#b02a3a', C: '#5a1a2a', c: '#7a2a3a', y: '#a8d8ff', Y: '#5a8ae8'}},
+};
+// les cartes : le sol (deux teintes de case) et ce qui pousse dessus
+const VL_MAPS = {pre: {name: 'Le pré', sub: 'herbe et fleurs'}, cimetiere: {name: 'Le cimetière', sub: 'tombes et brume'}, foret: {name: 'La forêt', sub: 'arbres et fougères'}, ferme: {name: 'La ferme', sub: 'blé et citrouilles'}};
+const vlOpen = k => { const n = VL_CHARS[k].need; return n === 'aube' ? vls.wins > 0 : (games.best.veillee || 0) >= n; };
 const VL_UP = {  // les améliorations : 5 niveaux chacune
   flash: {name: 'Lanterne', desc: 'lumière plus grande'}, dague: {name: 'Dagues', desc: '+1 dague, plus fortes'},
   luciole: {name: 'Lucioles', desc: '+1 luciole qui tourne'}, eclair: {name: 'Foudre', desc: 'frappe une de plus'},
@@ -338,7 +357,8 @@ const VL_UP = {  // les améliorations : 5 niveaux chacune
 function vlNew() {
   const g = vl?.g;
   vl = renew(vl, {g, mode: 'ready', tick: 0, seen: 0, t: 0, rnd: seeded(Date.now() % 1e9), keys: new Set(), x: 0, y: 0, face: 1, walk: 0, mx: 1, my: 0, hp: 100, max: 100, inv: 0,
-    lv: 1, xp: 0, next: 5, kills: 0, up: {flash: 1}, cds: {}, foes: [], gems: [], shots: [], fx: [], spawn: 0, picks: null, sel: 0, dead: 0, won: false, record: false, aim: null, bossN: 0});
+    lv: 1, xp: 0, next: 5, kills: 0, hero: vlOpen(vls.hero || 'veilleur') ? vls.hero || 'veilleur' : 'veilleur', map: VL_MAPS[vls.map] ? vls.map : 'pre', up: {}, cds: {}, foes: [], gems: [], shots: [], fx: [], spawn: 0, picks: null, sel: 0, dead: 0, won: false, record: false, aim: null, bossN: 0});
+  vl.up[VL_CHARS[vl.hero].arme] = 1;
   vlInfo();
 }
 const vlL = k => vl.up[k] || 0;
@@ -457,7 +477,7 @@ function vlDarkMask() {  // le noir tramé autour de la lanterne : calculé une 
 const vlMirror = rows => rows.map(r => [...r].reverse().join(''));
 const vlBig = rows => rows.flatMap(r => { const d = r.replace(/./g, '$&$&'); return [d, d]; });  // le grand corbeau est dessiné en double taille
 function vlSprite(g, key, frame, cx, cy, flip, flash) {
-  const S = VL_SPR[key], rows = key === 'crow' ? vlBig(S.f[frame % S.f.length]) : S.f[frame % S.f.length], w = rows[0].length, h = rows.length, pal = flash ? Object.fromEntries(Object.keys(S.pal).map(k => [k, '#ffffff'])) : S.pal;
+  const S = VL_SPR[key], rows = key === 'crow' ? vlBig(S.f[frame % S.f.length]) : S.f[frame % S.f.length], w = rows[0].length, h = rows.length, pal = flash ? Object.fromEntries(Object.keys(S.pal).map(k => [k, '#ffffff'])) : key === 'hero' ? {...S.pal, ...VL_CHARS[vl.hero]?.pal} : S.pal;
   sprite(g, flip ? vlMirror(rows) : rows, Math.round(cx - w / 2), Math.round(cy - h), pal);
 }
 const vlClock = sec => Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
@@ -468,12 +488,31 @@ function vlDraw() {
   // le pré : des cases de 16 pixels, herbe, fleurs, cailloux, champignons placés au hasard mais toujours au même endroit
   for (let ty = Math.floor(oy / 16); ty <= Math.floor((oy + H) / 16); ty++) for (let tx = Math.floor(ox / 16); tx <= Math.floor((ox + W) / 16); tx++) {
     const sx = tx * 16 - ox, sy = ty * 16 - oy, hsh = Math.imul(tx * 73856093 ^ ty * 19349663, 2654435761) >>> 0;
-    px(g, (tx + ty) & 1 ? '#24442a' : '#28482e', sx, sy, 16, 16);
     const k = hsh % 23, dx = sx + (hsh >> 5) % 11 + 2, dy = sy + (hsh >> 9) % 11 + 3;
-    if (k < 6) { px(g, '#3a6a3a', dx, dy, 1, 2); px(g, '#3a6a3a', dx + 2, dy - 1, 1, 3); px(g, '#3a6a3a', dx + 4, dy, 1, 2); }
-    else if (k < 8) { px(g, '#e8e0f0', dx, dy, 1, 1); px(g, '#e8e0f0', dx + 2, dy, 1, 1); px(g, '#e8e0f0', dx + 1, dy - 1, 1, 1); px(g, '#e8e0f0', dx + 1, dy + 1, 1, 1); px(g, '#ffd84a', dx + 1, dy, 1, 1); }
-    else if (k < 9) { px(g, '#5a5a6a', dx, dy, 4, 2); px(g, '#7a7a8a', dx + 1, dy - 1, 2, 1); }
-    else if (k < 10) { px(g, '#c83a3a', dx, dy, 4, 2); px(g, '#ffffff', dx + 1, dy, 1, 1); px(g, '#d8c8b0', dx + 1, dy + 2, 2, 2); }
+    if (vl.map === 'cimetiere') {
+      px(g, (tx + ty) & 1 ? '#262c2c' : '#2a3030', sx, sy, 16, 16);
+      if (k < 3) { px(g, '#0e0c14', dx - 1, dy - 6, 7, 9); px(g, '#7a7a8a', dx, dy - 7, 5, 9); px(g, '#9a9aaa', dx + 1, dy - 7, 3, 1); px(g, '#4a4a5a', dx + 2, dy - 5, 1, 4); px(g, '#4a4a5a', dx + 1, dy - 4, 3, 1); px(g, '#3a3a2a', dx - 1, dy + 2, 7, 1); }
+      else if (k < 7) { px(g, '#4a5a4a', dx, dy, 1, 2); px(g, '#4a5a4a', dx + 2, dy - 1, 1, 3); }
+      else if (k < 8) { px(g, '#d8d0c0', dx, dy, 4, 1); px(g, '#d8d0c0', dx - 1, dy - 1, 1, 1); px(g, '#d8d0c0', dx + 4, dy + 1, 1, 1); }
+      else if (k < 9) { px(g, '#5a4a3a', sx, sy + 8, 16, 1); px(g, '#5a4a3a', sx + 3, sy + 5, 1, 6); px(g, '#5a4a3a', sx + 11, sy + 5, 1, 6); }
+    } else if (vl.map === 'foret') {
+      px(g, (tx + ty) & 1 ? '#1a3020' : '#1d3422', sx, sy, 16, 16);
+      if (k < 3) { px(g, '#3a2a1a', dx + 2, dy - 3, 2, 6); [4, 6, 8, 8, 8, 6, 4].forEach((w, i) => { px(g, '#0e1a12', dx + 3 - w / 2 - 1, dy - 11 + i, w + 2, 1); px(g, i < 2 ? '#2e7a3a' : i < 5 ? '#1e5a2a' : '#164a22', dx + 3 - w / 2, dy - 11 + i, w, 1); }); px(g, '#0e1a12', dx + 1, dy - 12, 4, 1); px(g, '#0e1a12', dx + 1, dy - 4, 4, 1); px(g, '#4a9a4a', dx + 1, dy - 10, 2, 1); }
+      else if (k < 7) { px(g, '#2e6a34', dx, dy, 1, 3); px(g, '#2e6a34', dx + 1, dy - 1, 2, 1); px(g, '#2e6a34', dx - 2, dy - 1, 2, 1); px(g, '#2e6a34', dx + 1, dy + 1, 2, 1); }
+      else if (k < 8) { px(g, '#c83a3a', dx, dy, 4, 2); px(g, '#ffffff', dx + 1, dy, 1, 1); px(g, '#d8c8b0', dx + 1, dy + 2, 2, 2); }
+      else if (k < 9) { px(g, '#4a3a2a', dx - 2, dy, 8, 2); px(g, '#6a5a3a', dx - 1, dy, 6, 1); }
+    } else if (vl.map === 'ferme') {
+      px(g, (tx + ty) & 1 ? '#3a3220' : '#3e3622', sx, sy, 16, 16);
+      if (ty % 3) { for (let i = 1; i < 16; i += 3) { px(g, '#8a7a3a', sx + i, sy + 6, 1, 6); px(g, '#d8b84a', sx + i, sy + 5, 1, 2); } }
+      else { px(g, '#6a4a2a', sx, sy + 7, 16, 1); px(g, '#6a4a2a', sx, sy + 10, 16, 1); px(g, '#8a6a3a', sx + 2, sy + 5, 2, 8); }
+      if (k < 2 && ty % 3) { px(g, '#0e0a08', dx - 1, dy - 1, 7, 6); px(g, '#ff8a2a', dx, dy, 5, 4); px(g, '#c85a1a', dx + 2, dy, 1, 4); px(g, '#3a6a2a', dx + 2, dy - 1, 1, 1); }
+    } else {
+      px(g, (tx + ty) & 1 ? '#24442a' : '#28482e', sx, sy, 16, 16);
+      if (k < 6) { px(g, '#3a6a3a', dx, dy, 1, 2); px(g, '#3a6a3a', dx + 2, dy - 1, 1, 3); px(g, '#3a6a3a', dx + 4, dy, 1, 2); }
+      else if (k < 8) { px(g, '#e8e0f0', dx, dy, 1, 1); px(g, '#e8e0f0', dx + 2, dy, 1, 1); px(g, '#e8e0f0', dx + 1, dy - 1, 1, 1); px(g, '#e8e0f0', dx + 1, dy + 1, 1, 1); px(g, '#ffd84a', dx + 1, dy, 1, 1); }
+      else if (k < 9) { px(g, '#5a5a6a', dx, dy, 4, 2); px(g, '#7a7a8a', dx + 1, dy - 1, 2, 1); }
+      else if (k < 10) { px(g, '#c83a3a', dx, dy, 4, 2); px(g, '#ffffff', dx + 1, dy, 1, 1); px(g, '#d8c8b0', dx + 1, dy + 2, 2, 2); }
+    }
   }
   for (const gm of vl.gems) { const x = Math.round(gm.x - ox), y = Math.round(gm.y - oy); if (gm.heal) { px(g, '#c8884a', x - 2, y - 2, 5, 3); px(g, '#e8b878', x - 1, y - 2, 3, 1); } else { const c = gm.v >= 6 ? ['#ff6a8a', '#ffc8d8'] : gm.v >= 3 ? ['#4ae08a', '#c8ffd8'] : ['#4ab8ff', '#c8f0ff']; px(g, c[0], x - 1, y - 2, 3, 4); px(g, c[1], x, y - 2, 1, 2); } }
   // créatures et héros, du haut vers le bas de l'écran pour qu'ils se cachent bien les uns derrière les autres
@@ -500,7 +539,10 @@ function vlDraw() {
   const clock = vlClock(Math.floor(vl.t / 60));
   pxFont(g, clock, W / 2, 9, '#ffffff', 8, 'center'); pxFont(g, 'niv ' + vl.lv, W - 4, 9, '#ffd84a', 8, 'right');
   px(g, '#2a2236', W / 2 - 30, 11, 60, 1); px(g, '#ffd84a', W / 2 - 30, 11, Math.round(60 * Math.min(1, vl.t / VL.DUR)), 1);
-  if (vl.mode === 'ready') gameText(g, W, [['VEILLÉE', '#ffd84a', 12], ['Flèches ou ZQSD : marcher', '#ffffff'], ['Tiens jusqu’à l’aube !', '#b8d0ff']], 60);
+  const ups = Object.keys(VL_UP).filter(k => vlL(k));
+  if (ups.length && !vl.picks) { px(g, 'rgba(14,10,20,.85)', 0, H - 11, ups.length * 13 + 3, 11);
+    ups.forEach((k, i) => { const I = VL_ICON[k], x = 2 + i * 13, y = H - 10; for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) { const col = VL_ICON.pal[I[r][c]]; if (col) px(g, col, x + c, y + r, 1, 1); } for (let j = 0; j < 5; j++) px(g, j < vlL(k) ? '#ffd84a' : '#3a3046', x + 9, y + 8 - j * 2, 1, 1); }); }
+  if (vl.mode === 'ready') gameText(g, W, [['VEILLÉE', '#ffd84a', 12], [VL_CHARS[vl.hero].name + ' · ' + VL_MAPS[vl.map].name, '#ffffff'], ['Flèches ou ZQSD : marcher', '#ffffff'], ['Tiens jusqu’à l’aube !', '#b8d0ff']], 56);
   if (vl.mode === 'pause') gameText(g, W, [['PAUSE', '#ffd84a', 12], ['Entrée : reprendre', '#b8b0c8']], 66);
   if (vl.picks) {
     px(g, 'rgba(6,4,16,.78)', 0, 12, W, H - 12); pxFont(g, 'NIVEAU ' + vl.lv + ' !', W / 2, 30, '#ffd84a', 12, 'center');
@@ -518,7 +560,19 @@ function vlDraw() {
   if (vl.tick % 15 === 0) g.canvas.setAttribute('aria-label', 'Veillée : ' + clock + ', niveau ' + vl.lv + ', ' + Math.ceil(vl.hp) + ' PV sur ' + vl.max + ', ' + vl.kills + ' créatures vaincues' +
     (vl.picks ? '. Choix : ' + vl.picks.map((k, i) => (i === vl.sel ? '[' : '') + (VL_UP[k]?.name || 'Soin') + (i === vl.sel ? ']' : '')).join(', ') : '') + (vl.mode === 'over' ? (vl.won ? ', aube' : ', perdu') : '') + '.');
 }
+function vlChoose() {
+  const mk = (box, list, cur, open, sub, set) => $(box).replaceChildren(...Object.entries(list).map(([k, o]) => {
+    const b = el('button', 'btn' + (k === cur ? ' main' : '')), ok = open(k); b.disabled = !ok; b.setAttribute('aria-pressed', k === cur);
+    b.append(el('span', '', ok ? o.name : '???'), el('small', '', sub(k, o, ok)));
+    b.onclick = () => { set(k); saveGames(); if (vl.mode === 'ready' || vl.mode === 'over') vlNew(); else vlChoose(); b.blur(); };
+    return b;
+  }));
+  const lock = n => n === 'aube' ? 'voir l’aube' : 'tenir ' + Math.round(n / 60) + ' min';
+  mk('vlChars', VL_CHARS, vlOpen(vls.hero || 'veilleur') ? vls.hero || 'veilleur' : 'veilleur', vlOpen, (k, o, ok) => ok ? 'commence avec : ' + VL_UP[o.arme].name : 'pour l’avoir : ' + lock(o.need), k => { vls.hero = k; });
+  mk('vlMaps', VL_MAPS, VL_MAPS[vls.map] ? vls.map : 'pre', () => true, (k, o) => o.sub, k => { vls.map = k; });
+}
 function vlInfo() {
+  if (vl) vlChoose();
   $('vlStats').replaceChildren(...[['Plus longue nuit', vlClock(games.best.veillee || 0)], ['Aubes vues', vls.wins], ['Créatures vaincues', vls.kills], ['Parties', vls.games]].flatMap(([a, c]) => [el('span', '', a), el('b', '', String(c))]));
 }
 const VL_KEYS = {ArrowLeft: 'L', q: 'L', a: 'L', ArrowRight: 'R', d: 'R', ArrowUp: 'U', z: 'U', w: 'U', ArrowDown: 'D', s: 'D'};
@@ -561,7 +615,7 @@ function vlBot() {
 {  // vérification : le joueur automatique (pas malin) tient la première minute, monte de niveau et vainc des créatures ;
    // le contact fait mal ; 0 PV finit la partie ; l'aube la gagne ; un niveau propose trois choix
   const bad = [], keep = vl, keepS = JSON.stringify(vls), keepB = [games.best.veillee, games.best['veillee-kills']];
-  vlMute = true;
+  vlMute = true; vls.hero = 'veilleur'; vls.map = 'pre';
   for (let run = 0; run < 2; run++) {
     vl = null; vlNew(); vl.rnd = seeded(run + 7); vl.mode = 'play';
     for (let t = 0; t < 3600 && vl.mode !== 'over'; t++) { vlBot(); vlUpdate(); }
@@ -572,10 +626,14 @@ function vlBot() {
   vl.hp = 3; vl.inv = 0; vlUpdate(); if (vl.mode !== 'over' || vl.won) bad.push('0 PV sans fin');
   vl = null; vlNew(); vl.mode = 'play'; vl.t = VL.DUR - 1; vl.spawn = -1e9; vl.bossN = 9; vlUpdate(); if (!vl.won) bad.push('pas d’aube');
   vl = null; vlNew(); vl.mode = 'play'; vl.xp = 99; vl.spawn = -1e9; vlUpdate(); if (!vl.picks || vl.picks.length !== 3) bad.push('pas de choix au niveau'); else { vlTake(vl.picks[0]); if (vl.picks || vl.mode !== 'play') bad.push('choix pas pris'); }
+  games.best.veillee = 999; vls.wins = 1;  // tous débloqués : chacun commence avec son arme, et seulement elle
+  for (const [k, o] of Object.entries(VL_CHARS)) { vls.hero = k; vl = null; vlNew(); if (vl.hero !== k || Object.keys(vl.up).join() !== o.arme) bad.push('arme de départ ' + k); }
+  games.best.veillee = 100; vls.wins = 0; vls.hero = 'sorcier'; vl = null; vlNew(); if (vl.hero !== 'veilleur' || vlOpen('chasseuse')) bad.push('personnage verrouillé pris');
   console.assert(!bad.length, 'veillee', bad);
   Object.assign(vls, JSON.parse(keepS)); for (const [k, v] of [['veillee', keepB[0]], ['veillee-kills', keepB[1]]]) { if (v === undefined) delete games.best[k]; else games.best[k] = v; }
   vl = keep; vlMute = false;
 }
+$('vlFs').onclick = () => { $('vlFs').blur(); try { document.fullscreenElement ? document.exitFullscreen() : $('vlCanvas').parentElement.requestFullscreen?.().catch(() => {}); } catch {} };
 ctx.onOpen(() => {
   if (!vl || !vl.g) { vlNew(); vl.g = $('vlCanvas').getContext('2d'); }
   gameLoop(vl, 'veillee', vlUpdate, vlDraw); vlInfo();

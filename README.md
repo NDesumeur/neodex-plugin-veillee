@@ -37,3 +37,14 @@ Tes records sont enregistrés par NeoDex, sauvegardés et synchronisés entre te
 Dans NeoDex : **NeoStore → À découvrir → Veillée → Installer**.
 
 Développer un plugin : voir le [SDK NeoDex](https://github.com/NDesumeur/neodex-sdk).
+
+## Plein écran
+
+Le bouton « PLEIN ÉCRAN » met le jeu en plein écran. Le jeu grandit aussi avec la fenêtre, du petit portable au grand écran.
+
+## Nouveautés de la version 1.1.0
+
+- **Plein écran** (voir plus haut).
+- **Quatre personnages**, chacun avec son arme de départ : le Veilleur (lanterne), la Chasseuse (dagues, en tenant 3 minutes), l'Herboriste (lucioles, en tenant 6 minutes) et le Sorcier (foudre, en voyant l'aube). Ils se choisissent dans la colonne de droite.
+- **Quatre cartes** : le pré, le cimetière (tombes et clôtures), la forêt (arbres, fougères, champignons) et la ferme (rangs de blé, barrières, citrouilles).
+- **Améliorations visibles** : en bas de l'écran, l'icône de chaque amélioration prise et son niveau (jusqu'à 5 points).
