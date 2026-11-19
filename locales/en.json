@@ -85,7 +85,6 @@
  "Plus longue nuit": "Longest night",
  "RECORDS": "BESTS",
  "Record": "Best",
- "Record.": "Best.",
  "Soin": "Heal",
  "Tenu": "Lasted",
  "Tes armes tirent toutes seules : toi, tu marches. Évite les créatures, ramasse les cristaux qu'elles laissent et, à chaque niveau, choisis une amélioration parmi trois : lanterne, dagues, lucioles, foudre, bottes, cœur, aimant, mèche ou huile. Les chauves-souris vont plus vite que toi, les citrouilles et les golems arrivent plus tard, et deux grands corbeaux passent dans la nuit. Tiens 10 minutes et l'aube se lève.": "Your weapons fire by themselves: you just walk. Dodge the creatures, pick up the crystals they leave and, at each level, choose one upgrade out of three: lantern, daggers, fireflies, lightning, boots, heart, magnet, wick or oil. Bats are faster than you, pumpkins and golems come later, and two great crows fly through the night. Hold out 10 minutes and dawn breaks.",
@@ -127,5 +126,6 @@
  "vaincues": "defeated",
  "voir l’aube": "see the dawn",
  "arme de départ": "starting weapon",
- "personnage verrouillé pris": "locked character taken"
+ "personnage verrouillé pris": "locked character taken",
+ "Rien n'est synchronisé : tes records restent sur cet appareil.": "Nothing is synced: your records stay on this device."
 }
