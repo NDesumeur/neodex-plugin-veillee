@@ -24,6 +24,19 @@ Un jeu de survie en pixel art : seul dans un pré la nuit, lanterne à la main, 
 - Parfois, une créature laisse du **pain** : il soigne.
 - Tiens **10 minutes** : l'aube se lève et tu gagnes.
 
+## Évolutions (nouveau en 1.2.0)
+
+Une arme montée au **niveau 5** évolue si tu as aussi son **objet complice** (au moins niveau 1) : l'évolution apparaît alors en premier parmi les choix, avec un cadre violet, et la remplace pour le reste de la nuit.
+
+| Arme niveau 5 | + objet | = évolution |
+|---|---|---|
+| Lanterne | Huile | **Phare** : une lumière immense qui brûle, plus souvent |
+| Dagues | Bottes | **Mille lames** : 12 dagues tout autour, qui percent 6 créatures |
+| Lucioles | Aimant | **Essaim** : 9 lucioles vertes sur un cercle qui ondule |
+| Foudre | Mèche | **Orage** : 10 éclairs plus forts, qui éclatent sur les créatures voisines |
+
+Une arme évoluée a ses points en violet en bas de l'écran. Le carnet **ÉVOLUTIONS** de la colonne de droite donne les quatre recettes, et le nom de chaque évolution une fois que tu l'as découverte.
+
 ## Statistiques
 
 Le panneau Records garde ta **plus longue nuit**, les **aubes vues**, les **créatures vaincues** et le nombre de **parties**.

@@ -24,6 +24,19 @@ A pixel art survival game: alone in a meadow at night, lantern in hand, hold out
 - Sometimes a creature leaves **bread**: it heals.
 - Hold out **10 minutes**: dawn breaks and you win.
 
+## Evolutions (new in 1.2.0)
+
+A weapon raised to **level 5** evolves if you also have its **partner item** (at least level 1): the evolution then shows up first among the choices, with a purple frame, and replaces it for the rest of the night.
+
+| Weapon level 5 | + item | = evolution |
+|---|---|---|
+| Lantern | Oil | **Lighthouse**: a huge, burning light, more often |
+| Daggers | Boots | **Thousand blades**: 12 daggers all around, piercing 6 creatures |
+| Fireflies | Magnet | **Swarm**: 9 green fireflies on a weaving circle |
+| Lightning | Wick | **Thunderstorm**: 10 stronger bolts that burst onto nearby creatures |
+
+An evolved weapon has purple points at the bottom of the screen. The **EVOLUTIONS** notebook in the right-hand column gives the four recipes, and the name of each evolution once you have found it.
+
 ## Stats
 
 The Bests panel keeps your **longest night**, **dawns seen**, **creatures defeated** and the number of **games**.

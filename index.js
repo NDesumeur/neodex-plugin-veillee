@@ -6,8 +6,9 @@ const HTML = `<div class="appWrap wide">
     <div class="gSide">
       <div class="sysCard"><b>RECORDS</b><div class="gStats" id="vlStats"></div></div>
       <div class="sysCard vlChoose"><b>PERSONNAGE</b><div class="vlPick" id="vlChars" data-pxskip></div><b>CARTE</b><div class="vlPick" id="vlMaps" data-pxskip></div></div>
+      <div class="sysCard"><b>ÉVOLUTIONS</b><div class="vlEvos" id="vlEvos"></div></div>
       <div class="row"><button class="btn main" id="vlNew">NOUVELLE PARTIE</button><button class="btn" id="vlFs">PLEIN ÉCRAN</button></div>
-      <div class="hint">Tes armes tirent toutes seules : toi, tu marches. Évite les créatures, ramasse les cristaux qu'elles laissent et, à chaque niveau, choisis une amélioration parmi trois : lanterne, dagues, lucioles, foudre, bottes, cœur, aimant, mèche ou huile. Les chauves-souris vont plus vite que toi, les citrouilles et les golems arrivent plus tard, et deux grands corbeaux passent dans la nuit. Tiens 10 minutes et l'aube se lève.</div>
+      <div class="hint">Tes armes tirent toutes seules : toi, tu marches. Évite les créatures, ramasse les cristaux qu'elles laissent et, à chaque niveau, choisis une amélioration parmi trois : lanterne, dagues, lucioles, foudre, bottes, cœur, aimant, mèche ou huile. Les chauves-souris vont plus vite que toi, les citrouilles et les golems arrivent plus tard, et deux grands corbeaux passent dans la nuit. Une arme au niveau 5 évolue si tu as aussi son objet complice : l'évolution apparaît alors parmi les choix. Tiens 10 minutes et l'aube se lève.</div>
     </div></div>
 </div>`;
 const CSS = `.gMain{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
@@ -24,7 +25,10 @@ const CSS = `.gMain{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
 .pxk .vlPick .btn{flex-direction:column;align-items:flex-start;text-align:left;padding:4px 10px 8px;font:17px/1.25 var(--text,monospace)}
 .pxk .vlPick .btn span{font-size:17px}
 .pxk .vlPick .btn small{font-size:14px;opacity:.85}
-.vlPick .btn:disabled{opacity:.55;cursor:default}`;
+.vlPick .btn:disabled{opacity:.55;cursor:default}
+.vlEvos{display:grid;grid-template-columns:1fr auto;gap:4px 12px}
+.vlEvos b{text-align:right}
+.vlEvos .vlNo{opacity:.55}`;
 /* ---------- l'habillage pixel art, dessiné à la main : police bitmap (accents compris), cadres, boutons, icônes ----------
    Tout est en pixels pleins, agrandis par 2 sans lissage : aucun dégradé, aucune ombre floue. */
 const PXK = (() => {
@@ -354,10 +358,22 @@ const VL_UP = {  // les améliorations : 5 niveaux chacune
   luciole: {name: 'Lucioles', desc: '+1 luciole qui tourne'}, eclair: {name: 'Foudre', desc: 'frappe une de plus'},
   bottes: {name: 'Bottes', desc: 'tu marches plus vite'}, coeur: {name: 'Cœur', desc: '+20 PV, et soigne'}, aimant: {name: 'Aimant', desc: 'attire de plus loin'},
   meche: {name: 'Mèche', desc: 'tirs plus fréquents'}, huile: {name: 'Huile', desc: 'armes plus fortes'}};
+// les évolutions : l'arme au niveau 5 + son objet complice (au moins niveau 1) ; on garde la trace de celles déjà découvertes
+const VL_EVO = {
+  phare: {from: 'flash', with: 'huile', name: 'Phare', desc: 'lumière immense qui brûle'},
+  lames: {from: 'dague', with: 'bottes', name: 'Mille lames', desc: '12 dagues qui percent'},
+  essaim: {from: 'luciole', with: 'aimant', name: 'Essaim', desc: '9 lucioles qui ondulent'},
+  orage: {from: 'eclair', with: 'meche', name: 'Orage', desc: '10 éclairs qui éclatent'},
+};
+const vlEvo = k => vl.evo?.[k];
+const vlUpInfo = k => VL_UP[k] || VL_EVO[k] || {name: 'Soin', desc: 'toute ta vie revient'};
+const vlEvoReady = () => Object.keys(VL_EVO).filter(k => { const o = VL_EVO[k]; return vlL(o.from) >= 5 && vlL(o.with) > 0 && !vl.evo[o.from]; });
+const vlFlyN = () => vlEvo('luciole') ? 9 : vlL('luciole') + 1;
+const vlFly = i => { const ev = vlEvo('luciole'), R = ev ? 24 + Math.sin(vl.t * .05) * 10 : 22, a = vl.t * (ev ? .08 : .06) + i * Math.PI * 2 / vlFlyN(); return [Math.cos(a) * R, Math.sin(a) * R]; };
 function vlNew() {
   const g = vl?.g;
   vl = renew(vl, {g, mode: 'ready', tick: 0, seen: 0, t: 0, rnd: seeded(Date.now() % 1e9), keys: new Set(), x: 0, y: 0, face: 1, walk: 0, mx: 1, my: 0, hp: 100, max: 100, inv: 0,
-    lv: 1, xp: 0, next: 5, kills: 0, hero: vlOpen(vls.hero || 'veilleur') ? vls.hero || 'veilleur' : 'veilleur', map: VL_MAPS[vls.map] ? vls.map : 'pre', up: {}, cds: {}, foes: [], gems: [], shots: [], fx: [], spawn: 0, picks: null, sel: 0, dead: 0, won: false, record: false, aim: null, bossN: 0});
+    lv: 1, xp: 0, next: 5, kills: 0, hero: vlOpen(vls.hero || 'veilleur') ? vls.hero || 'veilleur' : 'veilleur', map: VL_MAPS[vls.map] ? vls.map : 'pre', up: {}, evo: {}, cds: {}, foes: [], gems: [], shots: [], fx: [], spawn: 0, picks: null, sel: 0, dead: 0, won: false, record: false, aim: null, bossN: 0});
   vl.up[VL_CHARS[vl.hero].arme] = 1;
   vlInfo();
 }
@@ -380,10 +396,12 @@ function vlHurt(e, dmg, kb = 1.5) {
 function vlOptions() {
   const pool = Object.keys(VL_UP).filter(k => vlL(k) < 5);
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(vl.rnd() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-  return pool.length ? pool.slice(0, 3) : ['soin'];
+  const all = [...vlEvoReady().slice(0, 1), ...pool];  // une évolution prête passe toujours en premier
+  return all.length ? all.slice(0, 3) : ['soin'];
 }
 function vlTake(k) {
-  if (k === 'soin') vl.hp = vl.max; else { vl.up[k] = vlL(k) + 1; if (k === 'coeur') { vl.max += 20; vl.hp = Math.min(vl.max, vl.hp + 40); } }
+  if (VL_EVO[k]) { vl.evo[VL_EVO[k].from] = k; vls.evos = [...new Set([...(vls.evos || []), k])]; vl.fx.push({k: 'evo', t: 50, name: VL_EVO[k].name}); [392, 523, 659, 784, 1047].forEach((f, i) => setTimeout(() => vlBeep(f, .14, 'triangle'), i * 80)); }
+  else if (k === 'soin') vl.hp = vl.max; else { vl.up[k] = vlL(k) + 1; if (k === 'coeur') { vl.max += 20; vl.hp = Math.min(vl.max, vl.hp + 40); } }
   vl.picks = null; vl.mode = 'play'; vlBeep(660, .1, 'triangle', 990);
 }
 function vlUpdate() {
@@ -421,12 +439,14 @@ function vlUpdate() {
   // les armes, chacune à son rythme
   const cd = (k, f) => { vl.cds[k] = (vl.cds[k] || 0) + 1; if (vl.cds[k] < vlCd(f)) return false; vl.cds[k] = 0; return true; };
   const L1 = vlL('flash');
-  if (L1 && cd('flash', 100 - L1 * 6)) { const R = 20 + L1 * 5; vl.fx.push({k: 'ring', r: R, t: 12}); for (const e of vl.foes) if (Math.hypot(e.x - vl.x, e.y - vl.y) < R + VL_FOES[e.type].r) vlHurt(e, vlDmg(5 + L1 * 3), 3); vlBeep(880, .05, 'triangle', 440, .015); }
+  const E1 = vlEvo('flash');
+  if (L1 && cd('flash', E1 ? 48 : 100 - L1 * 6)) { const R = E1 ? 64 : 20 + L1 * 5; vl.fx.push({k: 'ring', r: R, t: 12, big: E1}); for (const e of vl.foes) if (Math.hypot(e.x - vl.x, e.y - vl.y) < R + VL_FOES[e.type].r) vlHurt(e, vlDmg(E1 ? 36 : 5 + L1 * 3), E1 ? 5 : 3); vlBeep(880, .05, 'triangle', 440, .015); }
   const L2 = vlL('dague');
-  if (L2 && cd('dague', 56 - L2 * 5)) {
+  const E2 = vlEvo('dague');
+  if (L2 && cd('dague', E2 ? 34 : 56 - L2 * 5)) {
     let near = null, nd = 1e9; for (const e of vl.foes) { const d = Math.hypot(e.x - vl.x, e.y - vl.y); if (!e.gone && d < nd) { nd = d; near = e; } }
-    const base = near ? Math.atan2(near.y - vl.y, near.x - vl.x) : (vl.face > 0 ? 0 : Math.PI), n = 1 + Math.floor(L2 / 2);
-    for (let i = 0; i < n; i++) { const a = base + (i - (n - 1) / 2) * .18; vl.shots.push({x: vl.x, y: vl.y - 3, vx: Math.cos(a) * 3.2, vy: Math.sin(a) * 3.2, t: 60, pierce: 1 + Math.floor(L2 / 3), dmg: vlDmg(8 + L2 * 3), hits: new Set()}); }
+    const base = near ? Math.atan2(near.y - vl.y, near.x - vl.x) : (vl.face > 0 ? 0 : Math.PI), n = E2 ? 12 : 1 + Math.floor(L2 / 2);
+    for (let i = 0; i < n; i++) { const a = E2 ? base + i * Math.PI / 6 : base + (i - (n - 1) / 2) * .18; vl.shots.push({x: vl.x, y: vl.y - 3, vx: Math.cos(a) * 3.2, vy: Math.sin(a) * 3.2, t: 60, pierce: E2 ? 6 : 1 + Math.floor(L2 / 3), evo: !!E2, dmg: vlDmg(8 + L2 * 3), hits: new Set()}); }
   }
   for (const s of vl.shots) {
     s.x += s.vx; s.y += s.vy; s.t--;
@@ -434,14 +454,17 @@ function vlUpdate() {
   }
   vl.shots = vl.shots.filter(s => s.t > 0);
   const L3 = vlL('luciole');
-  if (L3) for (let i = 0; i <= L3; i++) {
-    const a = vl.t * .06 + i * Math.PI * 2 / (L3 + 1), fx = vl.x + Math.cos(a) * 22, fy = vl.y - 3 + Math.sin(a) * 22;
-    for (const e of vl.foes) if (!e.gone && (e.fly || 0) <= vl.t && Math.hypot(e.x - fx, e.y - 3 - fy) < VL_FOES[e.type].r + 3) { vlHurt(e, vlDmg(4 + L3 * 2), 1); e.fly = vl.t + 20; }
+  const E3 = vlEvo('luciole');
+  if (L3) for (let i = 0, n = vlFlyN(); i < n; i++) {
+    const [cx, cy] = vlFly(i), fx = vl.x + cx, fy = vl.y - 3 + cy;
+    for (const e of vl.foes) if (!e.gone && (e.fly || 0) <= vl.t && Math.hypot(e.x - fx, e.y - 3 - fy) < VL_FOES[e.type].r + 3) { vlHurt(e, vlDmg(E3 ? 15 : 4 + L3 * 2), 1); e.fly = vl.t + (E3 ? 12 : 20); }
   }
   const L4 = vlL('eclair');
-  if (L4 && cd('eclair', 130 - L4 * 12)) {
+  const E4 = vlEvo('eclair');
+  if (L4 && cd('eclair', E4 ? 60 : 130 - L4 * 12)) {
     const seen = vl.foes.filter(e => !e.gone && Math.abs(e.x - vl.x) < VL.W / 2 && Math.abs(e.y - vl.y) < VL.H / 2);
-    for (let i = 0; i < L4 && seen.length; i++) { const e = seen.splice(Math.floor(vl.rnd() * seen.length), 1)[0]; vlHurt(e, vlDmg(15 + L4 * 8), 0); vl.fx.push({k: 'bolt', x: e.x, y: e.y, t: 8, seed: vl.rnd() * 1e6 | 0}); }
+    for (let i = 0; i < (E4 ? 10 : L4) && seen.length; i++) { const e = seen.splice(Math.floor(vl.rnd() * seen.length), 1)[0]; vlHurt(e, vlDmg(E4 ? 70 : 15 + L4 * 8), 0); vl.fx.push({k: 'bolt', x: e.x, y: e.y, t: 8, seed: vl.rnd() * 1e6 | 0, evo: !!E4});
+      if (E4) { for (const o of vl.foes) if (o !== e && !o.gone && Math.hypot(o.x - e.x, o.y - e.y) < 16) vlHurt(o, vlDmg(30), 2); vl.fx.push({k: 'burst', x: e.x, y: e.y, t: 10}); } }
     vlBeep(1400, .08, 'sawtooth', 200, .02);
   }
   vl.foes = vl.foes.filter(e => !e.gone);
@@ -480,6 +503,7 @@ function vlSprite(g, key, frame, cx, cy, flip, flash) {
   const S = VL_SPR[key], rows = key === 'crow' ? vlBig(S.f[frame % S.f.length]) : S.f[frame % S.f.length], w = rows[0].length, h = rows.length, pal = flash ? Object.fromEntries(Object.keys(S.pal).map(k => [k, '#ffffff'])) : key === 'hero' ? {...S.pal, ...VL_CHARS[vl.hero]?.pal} : S.pal;
   sprite(g, flip ? vlMirror(rows) : rows, Math.round(cx - w / 2), Math.round(cy - h), pal);
 }
+const VL_FLAT = new Set(Object.values(VL_EVO).map(o => o.from));  // les armes qui peuvent évoluer
 const vlClock = sec => Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
 function vlDraw() {
   const g = vl.g, {W, H} = VL, ox = Math.round(vl.x - W / 2), oy = Math.round(vl.y - H / 2);
@@ -519,18 +543,21 @@ function vlDraw() {
   const ents = vl.foes.map(e => [e.y, () => vlSprite(g, e.type, e.f >> 3, e.x - ox, e.y - oy, e.x > vl.x, e.hit > 3)]);
   ents.push([vl.y, () => { if ((vl.mode === 'over' && !vl.won) || (vl.inv && (vl.inv >> 2) % 2)) return; vlSprite(g, 'hero', vl.walk >> 3, W / 2, H / 2 + 6, vl.face < 0, false); }]);
   for (const [, fn] of ents.sort((a, b) => a[0] - b[0])) fn();
-  for (const s of vl.shots) { const x = Math.round(s.x - ox), y = Math.round(s.y - oy), a = Math.atan2(s.vy, s.vx); for (let i = 0; i < 5; i++) px(g, i < 3 ? '#e8f0ff' : '#9a6a3a', x - Math.cos(a) * i, y - Math.sin(a) * i, 1, 1); }
+  for (const s of vl.shots) { const x = Math.round(s.x - ox), y = Math.round(s.y - oy), a = Math.atan2(s.vy, s.vx); for (let i = 0; i < 5; i++) px(g, i < 3 ? (s.evo ? '#ffb8ff' : '#e8f0ff') : '#9a6a3a', x - Math.cos(a) * i, y - Math.sin(a) * i, 1, 1); }
   // la nuit : le noir autour de la lanterne s'éclaircit à l'approche de l'aube
   vlDark ??= vlDarkMask();
   const night = vl.won ? 0 : Math.max(.2, 1 - Math.max(0, vl.t - VL.DUR * .8) / (VL.DUR * .2) * .8);
   g.globalAlpha = night; g.drawImage(vlDark, 0, 0); g.globalAlpha = 1;
   for (const e of vl.foes) { const S = VL_SPR[e.type], z = e.type === 'crow' ? 2 : 1, rows = S.f[(e.f >> 3) % S.f.length], w = rows[0].length * z, h = rows.length * z, flip = e.x > vl.x; for (const [ex, ey] of S.eyes) px(g, e.type === 'golem' ? '#7ae0ff' : e.type === 'pumpkin' ? '#ffe04a' : '#ff5a4a', Math.round(e.x - ox - w / 2) + (flip ? w - z - ex * z : ex * z), Math.round(e.y - oy - h) + ey * z, z, z); }
   const L3 = vlL('luciole');
-  for (let i = 0; L3 && i <= L3; i++) { const a = vl.t * .06 + i * Math.PI * 2 / (L3 + 1), x = Math.round(W / 2 + Math.cos(a) * 22), y = Math.round(H / 2 + 3 + Math.sin(a) * 22); px(g, '#ffd84a', x - 1, y, 3, 1); px(g, '#ffd84a', x, y - 1, 1, 3); px(g, '#ffffff', x, y, 1, 1); }
+  const fc = vlEvo('luciole') ? '#aaff6a' : '#ffd84a';
+  for (let i = 0, n = L3 ? vlFlyN() : 0; i < n; i++) { const [cx, cy] = vlFly(i), x = Math.round(W / 2 + cx), y = Math.round(H / 2 + 3 + cy); px(g, fc, x - 1, y, 3, 1); px(g, fc, x, y - 1, 1, 3); px(g, '#ffffff', x, y, 1, 1); }
   for (const f of vl.fx) {
-    if (f.k === 'ring') { const r = f.r * (1 - f.t / 14), n = Math.max(12, Math.round(r * 2)); for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; px(g, f.t > 6 ? '#fff0a0' : '#ffb02a', W / 2 + Math.cos(a) * r, H / 2 + 3 + Math.sin(a) * r * .8, 1, 1); } }
+    if (f.k === 'ring') { const r = f.r * (1 - f.t / 14), n = Math.max(12, Math.round(r * 2)); for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; px(g, f.big ? (f.t > 6 ? '#ffffff' : '#ff8aff') : f.t > 6 ? '#fff0a0' : '#ffb02a', W / 2 + Math.cos(a) * r, H / 2 + 3 + Math.sin(a) * r * .8, 1, 1); } }
     if (f.k === 'bolt') { const r = seeded(f.seed); let x = f.x - ox, y = 12; const ty = f.y - oy - 4; while (y < ty) { const nx = x + (r() - .5) * 6; px(g, f.t > 4 ? '#ffffff' : '#a8d8ff', Math.min(x, nx), y, Math.abs(nx - x) + 1, 1); px(g, '#a8d8ff', nx, y, 1, 4); x = nx; y += 4; } }
     if (f.k === 'bit') px(g, f.c, f.x - ox, f.y - oy - 3, 1, 1);
+    if (f.k === 'burst') { const r = (10 - f.t) * 1.6; for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; px(g, f.t > 5 ? '#ffffff' : '#a8d8ff', f.x - ox + Math.cos(a) * r, f.y - oy - 4 + Math.sin(a) * r * .8, 1, 1); } }
+    if (f.k === 'evo') { g.globalAlpha = Math.min(.6, f.t / 60); px(g, '#ffe8ff', 0, 12, W, H - 12); g.globalAlpha = 1; if (f.t > 8) gameText(g, W, [['ÉVOLUTION', '#ff8aff', 12], [f.name, '#ffffff']], 60); }
   }
   // le haut de l'écran : vie, cristaux, heure de la nuit
   px(g, '#0e0a14', 0, 0, W, 11);
@@ -541,16 +568,16 @@ function vlDraw() {
   px(g, '#2a2236', W / 2 - 30, 11, 60, 1); px(g, '#ffd84a', W / 2 - 30, 11, Math.round(60 * Math.min(1, vl.t / VL.DUR)), 1);
   const ups = Object.keys(VL_UP).filter(k => vlL(k));
   if (ups.length && !vl.picks) { px(g, 'rgba(14,10,20,.85)', 0, H - 11, ups.length * 13 + 3, 11);
-    ups.forEach((k, i) => { const I = VL_ICON[k], x = 2 + i * 13, y = H - 10; for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) { const col = VL_ICON.pal[I[r][c]]; if (col) px(g, col, x + c, y + r, 1, 1); } for (let j = 0; j < 5; j++) px(g, j < vlL(k) ? '#ffd84a' : '#3a3046', x + 9, y + 8 - j * 2, 1, 1); }); }
+    ups.forEach((k, i) => { const I = VL_ICON[k], x = 2 + i * 13, y = H - 10, ev = VL_FLAT.has(k) && vlEvo(k); for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) { const col = VL_ICON.pal[I[r][c]]; if (col) px(g, col, x + c, y + r, 1, 1); } for (let j = 0; j < 5; j++) px(g, j < vlL(k) ? (ev ? '#ff8aff' : '#ffd84a') : '#3a3046', x + 9, y + 8 - j * 2, 1, 1); if (ev) px(g, '#ff8aff', x, y - 1, 8, 1); }); }
   if (vl.mode === 'ready') gameText(g, W, [['VEILLÉE', '#ffd84a', 12], [VL_CHARS[vl.hero].name + ' · ' + VL_MAPS[vl.map].name, '#ffffff'], ['Flèches ou ZQSD : marcher', '#ffffff'], ['Tiens jusqu’à l’aube !', '#b8d0ff']], 56);
   if (vl.mode === 'pause') gameText(g, W, [['PAUSE', '#ffd84a', 12], ['Entrée : reprendre', '#b8b0c8']], 66);
   if (vl.picks) {
     px(g, 'rgba(6,4,16,.78)', 0, 12, W, H - 12); pxFont(g, 'NIVEAU ' + vl.lv + ' !', W / 2, 30, '#ffd84a', 12, 'center');
     vl.picks.forEach((k, i) => {
-      const y = 38 + i * 32, on = i === vl.sel, U = VL_UP[k] || {name: 'Soin', desc: 'toute ta vie revient'};
-      px(g, on ? '#ffd84a' : '#4a3e5a', 8, y, W - 16, 28); px(g, on ? '#3a2e4a' : '#1e1828', 9, y + 1, W - 18, 26);
-      const I = VL_ICON[k]; if (I) for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) { const col = VL_ICON.pal[I[r][c]]; if (col) px(g, col, 14 + c * 2, y + 6 + r * 2, 2, 2); }
-      pxFont(g, U.name + (k === 'soin' ? '' : vlL(k) ? '  niv ' + (vlL(k) + 1) : '  NOUVEAU'), 36, y + 12, on ? '#ffffff' : '#c8c0d8', 8);
+      const y = 38 + i * 32, on = i === vl.sel, U = vlUpInfo(k);
+      px(g, on ? '#ffd84a' : VL_EVO[k] ? '#c85ac8' : '#4a3e5a', 8, y, W - 16, 28); px(g, on ? '#3a2e4a' : '#1e1828', 9, y + 1, W - 18, 26);
+      const I = VL_ICON[k] || VL_ICON[VL_EVO[k]?.from]; if (I) for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) { const col = VL_ICON.pal[I[r][c]]; if (col) px(g, col, 14 + c * 2, y + 6 + r * 2, 2, 2); }
+      pxFont(g, U.name + (k === 'soin' ? '' : VL_EVO[k] ? '  ÉVOLUTION' : vlL(k) ? '  niv ' + (vlL(k) + 1) : '  NOUVEAU'), 36, y + 12, on ? '#ffffff' : '#c8c0d8', 8);
       pxFont(g, U.desc, 36, y + 23, on ? '#ffd84a' : '#8a8098', 8);
     });
   }
@@ -558,7 +585,7 @@ function vlDraw() {
   if (vl.mode === 'over' && vl.dead > 30) gameText(g, W, vl.won ? [['L’AUBE !', '#ffd84a', 12], ['Tu as tenu toute la nuit', '#ffffff'], [vl.kills + ' créatures vaincues', '#b8d0ff'], [vl.dead > 60 ? 'Espace : rejouer' : '', '#b8b0c8']]
     : [['LA NUIT A GAGNÉ', '#ff4a5a', 12], ['Tenu ' + clock + ', ' + vl.kills + ' vaincues', '#ffffff'], [vl.record ? 'NOUVEAU RECORD !' : 'Record ' + vlClock(b), '#ffd84a'], [vl.dead > 60 ? 'Espace : rejouer' : '', '#b8b0c8']], 56);
   if (vl.tick % 15 === 0) g.canvas.setAttribute('aria-label', 'Veillée : ' + clock + ', niveau ' + vl.lv + ', ' + Math.ceil(vl.hp) + ' PV sur ' + vl.max + ', ' + vl.kills + ' créatures vaincues' +
-    (vl.picks ? '. Choix : ' + vl.picks.map((k, i) => (i === vl.sel ? '[' : '') + (VL_UP[k]?.name || 'Soin') + (i === vl.sel ? ']' : '')).join(', ') : '') + (vl.mode === 'over' ? (vl.won ? ', aube' : ', perdu') : '') + '.');
+    (vl.picks ? '. Choix : ' + vl.picks.map((k, i) => (i === vl.sel ? '[' : '') + vlUpInfo(k).name + (i === vl.sel ? ']' : '')).join(', ') : '') + (vl.mode === 'over' ? (vl.won ? ', aube' : ', perdu') : '') + '.');
 }
 function vlChoose() {
   const mk = (box, list, cur, open, sub, set) => $(box).replaceChildren(...Object.entries(list).map(([k, o]) => {
@@ -573,6 +600,8 @@ function vlChoose() {
 }
 function vlInfo() {
   if (vl) vlChoose();
+  const found = vls.evos || [], vlRecipe = (o, c) => { const s = el('span', c); s.append(el('span', '', VL_UP[o.from].name), el('span', '', ' niv 5 + '), el('span', '', VL_UP[o.with].name)); return s; };  // morceaux séparés : chacun se traduit
+  $('vlEvos').replaceChildren(...Object.entries(VL_EVO).flatMap(([k, o]) => [vlRecipe(o, found.includes(k) ? '' : 'vlNo'), el('b', found.includes(k) ? '' : 'vlNo', found.includes(k) ? o.name : '???')]));
   $('vlStats').replaceChildren(...[['Plus longue nuit', vlClock(games.best.veillee || 0)], ['Aubes vues', vls.wins], ['Créatures vaincues', vls.kills], ['Parties', vls.games]].flatMap(([a, c]) => [el('span', '', a), el('b', '', String(c))]));
 }
 const VL_KEYS = {ArrowLeft: 'L', q: 'L', a: 'L', ArrowRight: 'R', d: 'R', ArrowUp: 'U', z: 'U', w: 'U', ArrowDown: 'D', s: 'D'};
@@ -601,6 +630,7 @@ document.addEventListener('keyup', e => { if (vl && VL_KEYS[e.key]) vl.keys.dele
     vl.mode = 'play'; vl.aim = [x - VL.W / 2, y - VL.H / 2]; cv.setPointerCapture?.(e.pointerId); };
   cv.onpointermove = e => { if (vl?.aim) { const [x, y] = at(e); vl.aim = [x - VL.W / 2, y - VL.H / 2]; } };
   cv.onpointerup = () => { if (vl) vl.aim = null; }; }
+$('vlCanvas').__vl = {st: () => vl, options: () => vlOptions()};
 $('vlNew').onclick = () => { vlNew(); $('vlNew').blur(); };
 // le joueur automatique de la vérification : s'éloigne des créatures proches, va vers le cristal le plus proche, prend la 1re amélioration
 function vlBot() {
@@ -626,6 +656,12 @@ function vlBot() {
   vl.hp = 3; vl.inv = 0; vlUpdate(); if (vl.mode !== 'over' || vl.won) bad.push('0 PV sans fin');
   vl = null; vlNew(); vl.mode = 'play'; vl.t = VL.DUR - 1; vl.spawn = -1e9; vl.bossN = 9; vlUpdate(); if (!vl.won) bad.push('pas d’aube');
   vl = null; vlNew(); vl.mode = 'play'; vl.xp = 99; vl.spawn = -1e9; vlUpdate(); if (!vl.picks || vl.picks.length !== 3) bad.push('pas de choix au niveau'); else { vlTake(vl.picks[0]); if (vl.picks || vl.mode !== 'play') bad.push('choix pas pris'); }
+  // les évolutions : proposée en premier quand elle est prête, prise une seule fois, et elle change vraiment l'arme
+  vl = null; vlNew(); vl.mode = 'play'; vl.up = {flash: 5, huile: 1}; if (vlOptions()[0] !== 'phare') bad.push('évolution pas proposée : ' + vlOptions());
+  vlTake('phare'); if (vl.evo.flash !== 'phare' || vlOptions().includes('phare')) bad.push('évolution pas prise');
+  vl = null; vlNew(); vl.mode = 'play'; vl.up = {dague: 4, bottes: 1}; if (vlOptions().some(k => VL_EVO[k])) bad.push('évolution avant le niveau 5');
+  vl.up.dague = 5; vlTake('lames'); vl.spawn = -1e9; vl.cds.dague = 99; vlUpdate(); if (vl.shots.length !== 12) bad.push('Mille lames : ' + vl.shots.length + ' dagues');
+  vl = null; vlNew(); vl.mode = 'play'; vl.up = {luciole: 5, aimant: 1}; vlTake('essaim'); if (vlFlyN() !== 9) bad.push('Essaim : ' + vlFlyN());
   games.best.veillee = 999; vls.wins = 1;  // tous débloqués : chacun commence avec son arme, et seulement elle
   for (const [k, o] of Object.entries(VL_CHARS)) { vls.hero = k; vl = null; vlNew(); if (vl.hero !== k || Object.keys(vl.up).join() !== o.arme) bad.push('arme de départ ' + k); }
   games.best.veillee = 100; vls.wins = 0; vls.hero = 'sorcier'; vl = null; vlNew(); if (vl.hero !== 'veilleur' || vlOpen('chasseuse')) bad.push('personnage verrouillé pris');

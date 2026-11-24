@@ -33,5 +33,12 @@ await shot('0-depart');
   await hold(null); await shot('3-fin');
   const m = /niveau (\d+), .* (\d+) créatures vaincues/.exec(l = await label());
   if (!m || +m[1] < 2 || +m[2] < 10) throw new Error('il fallait vaincre des créatures et passer un niveau : « ' + l + ' »');
-  return l;
+  // les évolutions (1.2.0) : Mille lames proposée en premier, prise au clavier, une image du choix et une du jeu ; le carnet la marque découverte
+  await pj(`document.getElementById('vlNew').click(), 0`); await sleep(200);
+  await pj(`(() => { const V = document.getElementById('vlCanvas').__vl, v = V.st(); v.mode = 'play'; v.up = {dague: 5, bottes: 1, luciole: 5, aimant: 2, flash: 3}; v.picks = V.options(); v.sel = 0; v.mode = 'pick'; return 0; })()`); await sleep(300);
+  await shot('4-evolution'); if (!(await label()).includes("Choix : [Mille lames]")) throw new Error('Mille lames devait être proposée en premier : ' + await label());
+  await ev('keydown', 'Enter'); await sleep(150); await hold('ArrowLeft'); await sleep(2200); await hold(null); await shot('5-mille-lames');
+  const ok = await pj(`(() => { const v = document.getElementById('vlCanvas').__vl.st(); return v.evo.dague + '|' + /Mille lames/.test(document.getElementById('vlEvos').textContent); })()`);
+  if (ok !== 'lames|true') throw new Error('évolution : ' + ok);
+  return l + ' · évolution Mille lames ok';
 };
