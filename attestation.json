@@ -1,9 +1,9 @@
 {
   "pluginId": "neodex.veillee",
   "repo": "NDesumeur/neodex-plugin-veillee",
-  "version": "1.1.2",
-  "sha256": "9fd6896105403c50647e1b0d7899c6d82bedd097c64ea90d09c3e1f81ffbc433",
-  "approvedAt": "2026-11-19T23:26:37.953Z",
+  "version": "1.2.0",
+  "sha256": "1f292096c6501298de52a9cab55743de579cd30ef159b2b6072cb1b300dc84d5",
+  "approvedAt": "2026-11-24T15:56:13.735Z",
   "neobase": ">=4.0.0",
-  "signature": "8aHMz2pSedvS4cU7nyd3vJkM/t4AnZj+gmmy/tZUvaey6QJK4NLXai+dBiE/4uiq2c7YDzFMY2O7XoD2dwHECQ=="
+  "signature": "26OEsgJZK/V05yj42BlNZwTJbDkwLnR3mFplKKhMuwWfr5Hoz/uyXkLSpRl5XZRyabVQMHDjzRfi5OAEYMtOBw=="
 }
