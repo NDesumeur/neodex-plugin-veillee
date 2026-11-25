@@ -310,6 +310,9 @@ export default async function (ctx) {
   const best = (k, v) => { const b = games.best[k]; if (v > (b ?? 0)) {  // un score nul n'est jamais un record
     games.best[k] = v; saveGames(); return true; } return false; };
   const gstore = (k, init) => (games[k] ??= init);
+  // les trophées de NeoDex (3.4.8 et plus) : succès et records déclarés dans plugin.json ; sur un NeoDex plus ancien, rien ne se passe
+  const trophy = id => { ctx.games?.unlock(id).catch(() => {}); };
+  const trophyRecord = (id, v) => { if (v != null && Number.isFinite(+v)) ctx.games?.record(id, +v).catch(() => {}); };
 function gameLoop(st, appKey, update, draw) {
   cancelAnimationFrame(st.raf);
   const STEP = 1000 / 60; let acc = 0, last = performance.now();
@@ -599,6 +602,7 @@ function vlChoose() {
   mk('vlMaps', VL_MAPS, VL_MAPS[vls.map] ? vls.map : 'pre', () => true, (k, o) => o.sub, k => { vls.map = k; });
 }
 function vlInfo() {
+  setTimeout(vlTrophies);
   if (vl) vlChoose();
   const found = vls.evos || [], vlRecipe = (o, c) => { const s = el('span', c); s.append(el('span', '', VL_UP[o.from].name), el('span', '', ' niv 5 + '), el('span', '', VL_UP[o.with].name)); return s; };  // morceaux séparés : chacun se traduit
   $('vlEvos').replaceChildren(...Object.entries(VL_EVO).flatMap(([k, o]) => [vlRecipe(o, found.includes(k) ? '' : 'vlNo'), el('b', found.includes(k) ? '' : 'vlNo', found.includes(k) ? o.name : '???')]));
@@ -670,6 +674,13 @@ function vlBot() {
   vl = keep; vlMute = false;
 }
 $('vlFs').onclick = () => { $('vlFs').blur(); try { document.fullscreenElement ? document.exitFullscreen() : $('vlCanvas').parentElement.requestFullscreen?.().catch(() => {}); } catch {} };
+// les trophées, tirés des statistiques et des records gardés (aussi à l'ouverture : ce qui a été fait avant compte)
+function vlTrophies() {
+  const t = games.best.veillee || 0, k = games.best['veillee-kills'] || 0, sig = [t, k, vls.wins, vls.kills].join(); if (sig === vlTrophies.sig) return; vlTrophies.sig = sig;
+  trophyRecord('temps', t || null); trophyRecord('monstres', k || null);
+  if (t >= 180) trophy('min3'); if (t >= 360) trophy('min6'); if (vls.wins >= 1) trophy('aube'); if (vls.wins >= 5) trophy('aube5');
+  if (k >= 500) trophy('k500'); if (vls.kills >= 5000) trophy('k5000'); if (Object.keys(VL_CHARS).every(vlOpen)) trophy('heros');
+}
 ctx.onOpen(() => {
   if (!vl || !vl.g) { vlNew(); vl.g = $('vlCanvas').getContext('2d'); }
   gameLoop(vl, 'veillee', vlUpdate, vlDraw); vlInfo();

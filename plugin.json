@@ -1,7 +1,7 @@
 {
   "id": "neodex.veillee",
   "name": "Veillée",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "author": "NDesumeur",
   "description": "Jeu de survie en pixel art : seul dans un pré la nuit, lanterne à la main, tu fais face à des vagues de chauves-souris, d'ombres, de citrouilles et de golems. Tes armes tirent toutes seules, tu te déplaces et tu ramasses des cristaux pour monter de niveau et choisir tes améliorations. Tiens 10 minutes jusqu'à l'aube. Le noir autour de la lanterne, les yeux qui brillent, deux grands corbeaux. Une arme au niveau 5 avec son objet complice évolue (Phare, Mille lames, Essaim, Orage). Version 1.1.0 : bouton plein écran, quatre personnages à débloquer avec leur arme de départ, trois nouvelles cartes (cimetière, forêt, ferme) et les améliorations choisies affichées pendant la partie.",
   "icon": "icon.png",
@@ -22,5 +22,57 @@
   "sdk": "2.1.0",
   "permissions": [
     "storage"
+  ],
+  "succes": [
+    {
+      "id": "min3",
+      "nom": "La nuit commence",
+      "texte": "Tenir 3 minutes"
+    },
+    {
+      "id": "min6",
+      "nom": "Au cœur de la nuit",
+      "texte": "Tenir 6 minutes"
+    },
+    {
+      "id": "aube",
+      "nom": "Jusqu'à l'aube",
+      "texte": "Tenir toute la nuit"
+    },
+    {
+      "id": "aube5",
+      "nom": "Gardien des nuits",
+      "texte": "Tenir toute la nuit 5 fois",
+      "cache": true
+    },
+    {
+      "id": "k500",
+      "nom": "Lanterne vaillante",
+      "texte": "Vaincre 500 monstres en une nuit"
+    },
+    {
+      "id": "k5000",
+      "nom": "Chasseur d'ombres",
+      "texte": "Vaincre 5 000 monstres en tout"
+    },
+    {
+      "id": "heros",
+      "nom": "Toute la troupe",
+      "texte": "Débloquer les 4 personnages"
+    }
+  ],
+  "records": [
+    {
+      "id": "temps",
+      "nom": "Plus longue nuit",
+      "sens": "haut",
+      "format": "temps"
+    },
+    {
+      "id": "monstres",
+      "nom": "Monstres en une nuit",
+      "sens": "haut",
+      "format": "nombre"
+    }
   ]
 }
